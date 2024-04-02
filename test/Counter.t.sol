@@ -1,24 +1,32 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Counter} from "../src/Counter.sol";
+import {NFTMarketplace} from "../src/NFTMarketplace.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract CounterTest is Test {
-    Counter public counter;
+
+contract NFTMarketplaceTest is Test, ERC721Holder {
+    NFTMarketplace marketplace;
+    address payable owner;
 
     function setUp() public {
-        counter = new Counter();
-        counter.setNumber(0);
+        owner = payable(address(this));
+        marketplace = new NFTMarketplace();
+        marketplace.assignCreatorRole(owner);
+        marketplace.assignBuyerRole(owner);
     }
 
-    function test_Increment() public {
-        counter.increment();
-        assertEq(counter.number(), 1);
+    function testCreateAndListToken() public {
+        uint256 tokenId = marketplace.createAndListToken("https://tokenURI", 1 ether);
+        assertEq(marketplace.getTokenURI(tokenId), "https://tokenURI");
+        assertEq(marketplace.nftPrices(tokenId), 1 ether);
     }
 
-    function testFuzz_SetNumber(uint256 x) public {
-        counter.setNumber(x);
-        assertEq(counter.number(), x);
-    }
+    function testBuyNFT() public {
+        uint256 tokenId = marketplace.createAndListToken("https://tokenURI", 1 ether);
+        marketplace.buyNFT{value: 1 ether}(tokenId);
+        assertEq(marketplace.ownerOf(tokenId), address(this));
+    }   
+
 }
