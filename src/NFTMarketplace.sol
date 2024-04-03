@@ -68,7 +68,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     event NFTSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
 
 
-    constructor() ERC721("NFTMarketplace", "NFTM"){
+    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
         owner = payable(msg.sender);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
