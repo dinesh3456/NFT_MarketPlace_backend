@@ -1,13 +1,6 @@
-## Foundry
+## NFTMarketplace backend
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+**The NFTMarketplace is build using Foundry. It is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust. The NFTMarketplace contract allows users to mint, list, and purchase NFTs. It includes a withdraw function that allows users to withdraw their balance from the contract.**
 
 ## Documentation
 
@@ -22,6 +15,10 @@ $ forge build
 ```
 
 ### Test
+
+**Tests for the NFTMarketplace contract are located in the test directory. These tests cover the main functionalities of the contract, including minting NFTs, setting prices, and withdrawing balances.**
+
+**To run the tests, use the forge test command:**
 
 ```shell
 $ forge test
@@ -48,7 +45,7 @@ $ anvil
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/NFTMarketplaceScript.sol:NFTMarketplaceScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
 ### Cast
@@ -64,3 +61,4 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
