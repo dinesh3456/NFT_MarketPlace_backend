@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /** 
  * @title NFTMarketplace
@@ -13,10 +14,20 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * This is a Solidity contract for a Non-Fungible Token (NFT) marketplace. It uses OpenZeppelin's ERC721 standard for NFTs, along with other OpenZeppelin contracts for access control, URI storage, reentrancy protection, and math operations.
  */
 
-contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
+contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
 
     using Math for uint256;
+
+    /**
+     * @notice Role definitions
+     * @dev Role definitions for the marketplace contract
+     * Roles: The contract defines several roles (Admin, Creator, Seller, Buyer) using OpenZeppelin's AccessControl. These roles are used to control access to certain functions.
+     * Admin: The Admin role is the default admin role for the contract. The Admin role has the highest level of access and can grant and revoke other roles.
+     * Creator: The Creator role is used to designate the creator of an NFT. The Creator role can create and list NFTs for sale.
+     * Seller: The Seller role is used to designate the seller of an NFT. The Seller role can set the price of an NFT and sell an NFT to a buyer.
+     * Buyer: The Buyer role is used to designate the buyer of an NFT. The Buyer role can buy an NFT from a seller.
+     */
 
     /**
      * @notice Role definitions
@@ -41,6 +52,14 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * @param price The price of the token
      * @param isListed A boolean flag indicating whether the token is listed for sale
      */
+    /**
+     * @dev Struct to represent a listed token
+     * @param tokenId The ID of the token
+     * @param owner The address of the token owner
+     * @param creator The address of the token creator
+     * @param price The price of the token
+     * @param isListed A boolean flag indicating whether the token is listed for sale
+     */
 
     struct ListedToken {
         uint256 tokenId;
@@ -56,6 +75,10 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     mapping(uint256 => uint256) public nftPrices; // Token ID => Price
     mapping(address => uint256) public balances; // Seller address => Balance
     mapping(uint256 => ListedToken) private idToListedToken; // Token ID => ListedToken
+
+    // Add a mapping to store token URIs
+    mapping (uint256 => string) private _tokenURIs; 
+
     
     event TokenListedSuccess(
         uint256 indexed id,
@@ -67,12 +90,27 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     event NFTPriceSet(uint256 indexed tokenId, uint256 price);
     event NFTSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
 
-    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
-        owner = payable(msg.sender);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-
+    constructor(){
+        _disableInitializers();
     }
+
+    function initialize() public initializer {
+        __ERC721_init("MyNFT", "MNFT");
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+
+    // constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
+    //     owner = payable(msg.sender);
+    //     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+    // }
 
     modifier onlyRoleCustom(bytes32 role) {
         require(hasRole(role, msg.sender), "NFTMarketplace: Caller is not in the required role");
@@ -82,20 +120,41 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     /**
      * @notice Create and list a token for sale
      * @dev Creates a new token and lists it for sale
-     * @param tokenURI The URI for the token metadata
-     * @param price The price of the token
      * NFT Creation and Listing: The createAndListToken function allows a user with the Creator role to create a new NFT and list it for sale at a specified price.
      * The function increments the token ID counter, mints a new token, sets the token URI, and lists the token for sale with the specified price.
      * The function also emits an event to indicate the success of the token listing.
-     * @return The ID of the newly created token
      * 
      */
 
-    function createAndListToken(string memory tokenURI, uint256 price) public payable onlyRole(CREATOR_ROLE) returns (uint256) {
+    // Add a function to set the token URI
+    function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal virtual {
+        _tokenURIs[tokenId] = _tokenURI;
+    }
+
+    // Override the tokenURI function to use your _tokenURIs mapping
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+
+        string memory _tokenURI = _tokenURIs[tokenId];
+        string memory base = _baseURI();
+
+        // If there is no base URI, return the token URI.
+        if (bytes(base).length == 0) {
+            return _tokenURI;
+        }
+        // If both are set, concatenate the baseURI and tokenURI (via abi.encodePacked).
+        if (bytes(_tokenURI).length > 0) {
+            return string(abi.encodePacked(base, _tokenURI));
+        }
+        // If there is a baseURI but no tokenURI, concatenate the tokenID to the baseURI.
+        return string(abi.encodePacked(base, Strings.toString(tokenId)));
+}   
+
+
+    function createAndListToken(string memory _tokenURI, uint256 price) public payable onlyRoleCustom(CREATOR_ROLE) returns (uint256) {
     _tokenIdCounter++;
     uint256 newTokenId = _tokenIdCounter;
     _safeMint(msg.sender, newTokenId);
-    _setTokenURI(newTokenId, tokenURI);
+    _setTokenURI(newTokenId, _tokenURI);
 
     // List the token for sale
     address tokenOwner = ownerOf(newTokenId);
@@ -129,7 +188,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * The function updates the price of the NFT in the nftPrices mapping and emits an event to indicate the new price of the NFT.
      */
 
-    function setPrice(uint256 _tokenId, uint256 _price) external onlyRole(SELLER_ROLE) {
+    function setPrice(uint256 _tokenId, uint256 _price) external onlyRoleCustom(SELLER_ROLE) {
         address tokenOwner = ownerOf(_tokenId);
         require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
         nftPrices[_tokenId] = _price;
@@ -145,7 +204,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * The function transfers the NFT to the buyer, calculates the contract fee and seller proceeds, updates the balances mapping, and emits an event to indicate the sale of the NFT.
      */
 
-    function buyNFT(uint256 _tokenId) external payable onlyRole(BUYER_ROLE) nonReentrant {
+    function buyNFT(uint256 _tokenId) external payable onlyRoleCustom(BUYER_ROLE) nonReentrant {
         require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT not for sale");
         require(msg.value >= nftPrices[_tokenId], "NFTMarketplace: Insufficient funds");
 
@@ -172,6 +231,12 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * Withdrawal: The withdraw function allows a user to withdraw their funds from the marketplace.
      * The function transfers the user's balance to the user's address and sets the balance to zero.
      */
+    /**
+     * @notice Withdraw funds
+     * @dev Allows a user to withdraw their funds from the marketplace
+     * Withdrawal: The withdraw function allows a user to withdraw their funds from the marketplace.
+     * The function transfers the user's balance to the user's address and sets the balance to zero.
+     */
 
     function withdraw() external nonReentrant  {
         require(balances[msg.sender] > 0, "NFTMarketplace: No balance to withdraw");
@@ -188,8 +253,15 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
      * The function uses OpenZeppelin's grantRole function to assign the role to the address.
      */
+     /**
+     * @notice Assign a role to an address
+     * @dev Allows the contract owner to assign a role to an address
+     * @param _address The address to assign the role to
+     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
+     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
+     */
 
-    function assignCreatorRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+    function assignCreatorRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(CREATOR_ROLE, _address);
     }
 
@@ -199,7 +271,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * The function uses OpenZeppelin's grantRole function to assign the role to the address.
      */
 
-    function assignBuyerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+    function assignBuyerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(BUYER_ROLE, _address);
     }
 
@@ -209,7 +281,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
     */
 
-    function assignSellerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+    function assignSellerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(SELLER_ROLE, _address);
     }
 
@@ -219,7 +291,7 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * The function uses OpenZeppelin's grantRole function to assign the role to the address.
      */
 
-    function assignAdminRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
+    function assignAdminRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(ADMIN_ROLE, _address);
     }
 
@@ -229,9 +301,16 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * The function uses OpenZeppelin's revokeRole function to revoke the role from the address.
      */
 
-    function revokeRole(address _address, bytes32 _role) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function revokeRole(address _address, bytes32 _role) external onlyRoleCustom(DEFAULT_ADMIN_ROLE) {
         revokeRole(_role, _address);
     }
+
+    /**
+     * @param _tokenId The ID of the token
+     * @return The URI of the token
+     * Token URI Retrieval: The getTokenURI function allows a user to retrieve the URI of a token by its ID.
+     * The function calls the tokenURI function from the ERC721URIStorage contract to retrieve the token URI.
+     */
 
     /**
      * @param _tokenId The ID of the token
@@ -250,6 +329,12 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
      * iterate through all tokens and return only the listed ones
      */
 
+    /**
+     * get all listed tokens
+     * @return listedTokens
+     * iterate through all tokens and return only the listed ones
+     */
+
     function getAllNfts() public view returns (ListedToken[] memory) {
     ListedToken[] memory listedTokens = new ListedToken[](_tokenIdCounter);
     uint256 index = 0;
@@ -261,6 +346,12 @@ contract NFTMarketplace is AccessControl, ERC721URIStorage, ReentrancyGuard {
     }
     return listedTokens;
 }
+
+/**
+ * get all listed tokens
+ * @return listedTokens
+ * iterate through all the tokens which the owner owns and return only the listed ones 
+ */
 
 /**
  * get all listed tokens
@@ -288,6 +379,12 @@ function getMyNfts() public view returns (ListedToken[] memory) {
  * @return listedToken
  * get the listed token for a specific token ID
  */
+/**
+ * 
+ * @param tokenId The ID of the token
+ * @return listedToken
+ * get the listed token for a specific token ID
+ */
 
     function getListedTokenForId(uint256 tokenId) public view returns (ListedToken memory) {
         return idToListedToken[tokenId];
@@ -300,9 +397,13 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * Interface Support: The supportsInterface function overrides the supportsInterface function from the ERC721URIStorage and AccessControl contracts.
      */
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721URIStorage, AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721Upgradeable,AccessControlUpgradeable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
+
+    /**
+     * returns the tokenId
+     */
 
     /**
      * returns the tokenId
@@ -323,23 +424,29 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * updates the balances mapping
      */
 
-    function sellNfts(uint256 _tokenId) public payable onlyRole(SELLER_ROLE) {
-        require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
-        require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
-        require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
-        address seller = idToListedToken[_tokenId].owner;
-        uint price = idToListedToken[_tokenId].price;
+   function sellNfts(uint256 _tokenId) public payable onlyRoleCustom(SELLER_ROLE) {
+    require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
+    require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
+    require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
+    address seller = idToListedToken[_tokenId].owner;
+    uint price = idToListedToken[_tokenId].price;
 
-        idToListedToken[_tokenId].owner = payable(msg.sender);
+    // Transfer the NFT to the buyer
+    safeTransferFrom(seller, msg.sender, _tokenId);
 
-        ERC721(address(this)).approve(msg.sender, _tokenId);
+    balances[seller] += msg.value * 95 / 100;
+    balances[address(this)] += msg.value * 5 / 100;
 
-        balances[seller] += msg.value * 95 / 100;
-        balances[address(this)] += msg.value * 5 / 100;
+    payable(seller).transfer(msg.value * 95 / 100);
+    payable(owner).transfer(msg.value * 5 / 100);
 
-        payable(seller).transfer(msg.value * 95 / 100);
-        payable(owner).transfer(msg.value * 5 / 100);
+    emit NFTSold(_tokenId, msg.sender, price);
+}
 
-        emit NFTSold(_tokenId, msg.sender, price);
-    } 
+    function _authorizeUpgrade(address newImplementation) internal override onlyRoleCustom(ADMIN_ROLE) {}
+
+    function _implementation() internal view returns (address) {
+        return address(this);
+    }
+
 }
