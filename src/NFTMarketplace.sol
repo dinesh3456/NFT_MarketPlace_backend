@@ -29,29 +29,12 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
      * Buyer: The Buyer role is used to designate the buyer of an NFT. The Buyer role can buy an NFT from a seller.
      */
 
-    /**
-     * @notice Role definitions
-     * @dev Role definitions for the marketplace contract
-     * Roles: The contract defines several roles (Admin, Creator, Seller, Buyer) using OpenZeppelin's AccessControl. These roles are used to control access to certain functions.
-     * Admin: The Admin role is the default admin role for the contract. The Admin role has the highest level of access and can grant and revoke other roles.
-     * Creator: The Creator role is used to designate the creator of an NFT. The Creator role can create and list NFTs for sale.
-     * Seller: The Seller role is used to designate the seller of an NFT. The Seller role can set the price of an NFT and sell an NFT to a buyer.
-     * Buyer: The Buyer role is used to designate the buyer of an NFT. The Buyer role can buy an NFT from a seller.
-     */
-
     bytes32 public constant ADMIN_ROLE = keccak256(abi.encodePacked("ADMIN_ROLE"));
     bytes32 public constant CREATOR_ROLE = keccak256(abi.encodePacked("CREATOR_ROLE"));
     bytes32 public constant SELLER_ROLE = keccak256(abi.encodePacked("SELLER_ROLE"));
     bytes32 public constant BUYER_ROLE = keccak256(abi.encodePacked("BUYER_ROLE"));
 
-    /**
-     * @dev Struct to represent a listed token
-     * @param tokenId The ID of the token
-     * @param owner The address of the token owner
-     * @param creator The address of the token creator
-     * @param price The price of the token
-     * @param isListed A boolean flag indicating whether the token is listed for sale
-     */
+    
     /**
      * @dev Struct to represent a listed token
      * @param tokenId The ID of the token
@@ -246,13 +229,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         require(success, "NFTMarketplace: Transfer failed");
     }
 
-     /**
-     * @notice Assign a role to an address
-     * @dev Allows the contract owner to assign a role to an address
-     * @param _address The address to assign the role to
-     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
-     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
-     */
+     
      /**
      * @notice Assign a role to an address
      * @dev Allows the contract owner to assign a role to an address
@@ -265,53 +242,27 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         grantRole(CREATOR_ROLE, _address);
     }
 
-    /**
-     * @param _address The address to assign the role to
-     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
-     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
-     */
 
     function assignBuyerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(BUYER_ROLE, _address);
     }
 
-    /*
-    * @param _address The address to assign the role to
-    * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
-    * The function uses OpenZeppelin's grantRole function to assign the role to the address.
-    */
 
     function assignSellerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(SELLER_ROLE, _address);
     }
 
-    /**
-     * @param _address The address to assign the role to
-     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
-     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
-     */
-
     function assignAdminRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
         grantRole(ADMIN_ROLE, _address);
     }
 
-    /**
-     * @param _address The address to revoke the role from
-     * Role Revocation: The revokeRole function allows the contract owner to revoke a role from an address.
-     * The function uses OpenZeppelin's revokeRole function to revoke the role from the address.
-     */
+    
 
     function revokeRole(address _address, bytes32 _role) external onlyRoleCustom(DEFAULT_ADMIN_ROLE) {
         revokeRole(_role, _address);
     }
 
-    /**
-     * @param _tokenId The ID of the token
-     * @return The URI of the token
-     * Token URI Retrieval: The getTokenURI function allows a user to retrieve the URI of a token by its ID.
-     * The function calls the tokenURI function from the ERC721URIStorage contract to retrieve the token URI.
-     */
-
+  
     /**
      * @param _tokenId The ID of the token
      * @return The URI of the token
@@ -322,13 +273,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     function getTokenURI(uint256 _tokenId) external view returns (string memory) {
         return tokenURI(_tokenId);
     }
-
-    /**
-     * get all listed tokens
-     * @return listedTokens
-     * iterate through all tokens and return only the listed ones
-     */
-
     /**
      * get all listed tokens
      * @return listedTokens
@@ -347,11 +291,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     return listedTokens;
 }
 
-/**
- * get all listed tokens
- * @return listedTokens
- * iterate through all the tokens which the owner owns and return only the listed ones 
- */
 
 /**
  * get all listed tokens
@@ -373,18 +312,13 @@ function getMyNfts() public view returns (ListedToken[] memory) {
     return listedTokens;
 }
 
-/**
- * 
- * @param tokenId The ID of the token
- * @return listedToken
- * get the listed token for a specific token ID
- */
-/**
- * 
- * @param tokenId The ID of the token
- * @return listedToken
- * get the listed token for a specific token ID
- */
+
+    /**
+    * 
+    * @param tokenId The ID of the token
+    * @return listedToken
+    * get the listed token for a specific token ID
+    */
 
     function getListedTokenForId(uint256 tokenId) public view returns (ListedToken memory) {
         return idToListedToken[tokenId];
@@ -405,9 +339,6 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * returns the tokenId
      */
 
-    /**
-     * returns the tokenId
-     */
 
     function getTokenIdCounter() public view returns (uint256) {
         return (_tokenIdCounter);
