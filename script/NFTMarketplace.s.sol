@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 import {NFTMarketplace} from "../src/NFTMarketplace.sol";
-import {NFTMarketplaceProxy} from "../src/ProxyNFTMarketplace.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract NFTMarketplaceScript is Script {
 
@@ -15,7 +15,7 @@ contract NFTMarketplaceScript is Script {
     function deployProxy() public returns (address) {
         vm.startBroadcast();
         NFTMarketplace marketplace = new NFTMarketplace();
-        NFTMarketplaceProxy proxy = new NFTMarketplaceProxy(address(marketplace));
+        ERC1967Proxy proxy = new ERC1967Proxy(address(marketplace),"");
         NFTMarketplace(address(proxy)).initialize();
         vm.stopBroadcast();
         return address(proxy);
