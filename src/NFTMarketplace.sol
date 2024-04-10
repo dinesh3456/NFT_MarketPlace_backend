@@ -34,7 +34,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     bytes32 public constant SELLER_ROLE = keccak256(abi.encodePacked("SELLER_ROLE"));
     bytes32 public constant BUYER_ROLE = keccak256(abi.encodePacked("BUYER_ROLE"));
 
-    
     /**
      * @dev Struct to represent a listed token
      * @param tokenId The ID of the token
@@ -76,19 +75,20 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     /// @custom:oz-upgrades-unsafe-allow constructor
 
     constructor(){
-        _disableInitializers();
+        
+        _disableInitializers();        
     }
 
     function initialize() public initializer {
         __ERC721_init("MyNFT", "MNFT");
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        
+        
     }
-
-
     // constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
     //     owner = payable(msg.sender);
     //     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -133,34 +133,34 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
 }   
 
 
-    function createAndListToken(string memory _tokenURI, uint256 price) public payable onlyRoleCustom(CREATOR_ROLE) returns (uint256) {
-    _tokenIdCounter++;
-    uint256 newTokenId = _tokenIdCounter;
-    _safeMint(msg.sender, newTokenId);
-    _setTokenURI(newTokenId, _tokenURI);
+    function createAndListToken(string memory _tokenURI, uint256 price) public payable onlyRole(CREATOR_ROLE) returns (uint256) {
+        _tokenIdCounter++;
+        uint256 newTokenId = _tokenIdCounter;
+        _safeMint(msg.sender, newTokenId);
+        _setTokenURI(newTokenId, _tokenURI);
 
-    // List the token for sale
-    address tokenOwner = ownerOf(newTokenId);
-    require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
+        // List the token for sale
+        address tokenOwner = ownerOf(newTokenId);
+        require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
 
-    nftPrices[newTokenId] = price;
-    idToListedToken[newTokenId] = ListedToken({
-        tokenId: newTokenId,
-        owner: payable(msg.sender),
-        creator: payable(ownerOf(newTokenId)),
-        price: price,
-        isListed: true
-    });
-    emit TokenListedSuccess(
-        newTokenId,
-        ownerOf(newTokenId),
-        idToListedToken[newTokenId].creator,
-        price,
-        true
-    );
+        nftPrices[newTokenId] = price;
+        idToListedToken[newTokenId] = ListedToken({
+            tokenId: newTokenId,
+            owner: payable(msg.sender),
+            creator: payable(ownerOf(newTokenId)),
+            price: price,
+            isListed: true
+        });
+        emit TokenListedSuccess(
+            newTokenId,
+            ownerOf(newTokenId),
+            idToListedToken[newTokenId].creator,
+            price,
+            true
+        );
 
-    return newTokenId;
-    }
+        return newTokenId;
+        }
 
     /**
      * @notice Set the price of an NFT
@@ -171,7 +171,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
      * The function updates the price of the NFT in the nftPrices mapping and emits an event to indicate the new price of the NFT.
      */
 
-    function setPrice(uint256 _tokenId, uint256 _price) external onlyRoleCustom(SELLER_ROLE) {
+    function setPrice(uint256 _tokenId, uint256 _price) external onlyRole(SELLER_ROLE) {
         address tokenOwner = ownerOf(_tokenId);
         require(tokenOwner != address(0), "NFTMarketplace: Token ID does not exist");
         nftPrices[_tokenId] = _price;
@@ -187,7 +187,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
      * The function transfers the NFT to the buyer, calculates the contract fee and seller proceeds, updates the balances mapping, and emits an event to indicate the sale of the NFT.
      */
 
-    function buyNFT(uint256 _tokenId) external payable onlyRoleCustom(BUYER_ROLE) nonReentrant {
+    function buyNFT(uint256 _tokenId) external payable onlyRole(BUYER_ROLE) nonReentrant {
         require(nftPrices[_tokenId] > 0, "NFTMarketplace: NFT not for sale");
         require(msg.value >= nftPrices[_tokenId], "NFTMarketplace: Insufficient funds");
 
@@ -214,12 +214,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
      * Withdrawal: The withdraw function allows a user to withdraw their funds from the marketplace.
      * The function transfers the user's balance to the user's address and sets the balance to zero.
      */
-    /**
-     * @notice Withdraw funds
-     * @dev Allows a user to withdraw their funds from the marketplace
-     * Withdrawal: The withdraw function allows a user to withdraw their funds from the marketplace.
-     * The function transfers the user's balance to the user's address and sets the balance to zero.
-     */
 
     function withdraw() external nonReentrant  {
         require(balances[msg.sender] > 0, "NFTMarketplace: No balance to withdraw");
@@ -229,7 +223,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         require(success, "NFTMarketplace: Transfer failed");
     }
 
-     
      /**
      * @notice Assign a role to an address
      * @dev Allows the contract owner to assign a role to an address
@@ -238,31 +231,50 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
      * The function uses OpenZeppelin's grantRole function to assign the role to the address.
      */
 
-    function assignCreatorRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
+    function assignCreatorRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
         grantRole(CREATOR_ROLE, _address);
     }
 
+    /**
+     * @param _address The address to assign the role to
+     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
+     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
+     */
 
-    function assignBuyerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
+    function assignBuyerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
         grantRole(BUYER_ROLE, _address);
     }
 
+    /*
+    * @param _address The address to assign the role to
+    * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
+    * The function uses OpenZeppelin's grantRole function to assign the role to the address.
+    */
 
-    function assignSellerRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
+    function assignSellerRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
         grantRole(SELLER_ROLE, _address);
     }
 
-    function assignAdminRole(address _address) external  onlyRoleCustom(DEFAULT_ADMIN_ROLE){
+    /**
+     * @param _address The address to assign the role to
+     * Role Assignment: The assignRole function allows the contract owner to assign a role to an address.
+     * The function uses OpenZeppelin's grantRole function to assign the role to the address.
+     */
+
+    function assignAdminRole(address _address) external  onlyRole(DEFAULT_ADMIN_ROLE){
         grantRole(ADMIN_ROLE, _address);
     }
 
-    
+    /**
+     * @param _address The address to revoke the role from
+     * Role Revocation: The revokeRole function allows the contract owner to revoke a role from an address.
+     * The function uses OpenZeppelin's revokeRole function to revoke the role from the address.
+     */
 
-    function revokeRole(address _address, bytes32 _role) external onlyRoleCustom(DEFAULT_ADMIN_ROLE) {
+    function revokeRole(address _address, bytes32 _role) external onlyRole(DEFAULT_ADMIN_ROLE) {
         revokeRole(_role, _address);
     }
 
-  
     /**
      * @param _tokenId The ID of the token
      * @return The URI of the token
@@ -273,6 +285,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     function getTokenURI(uint256 _tokenId) external view returns (string memory) {
         return tokenURI(_tokenId);
     }
+
     /**
      * get all listed tokens
      * @return listedTokens
@@ -290,7 +303,6 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
     }
     return listedTokens;
 }
-
 
 /**
  * get all listed tokens
@@ -312,13 +324,12 @@ function getMyNfts() public view returns (ListedToken[] memory) {
     return listedTokens;
 }
 
-
-    /**
-    * 
-    * @param tokenId The ID of the token
-    * @return listedToken
-    * get the listed token for a specific token ID
-    */
+/**
+ * 
+ * @param tokenId The ID of the token
+ * @return listedToken
+ * get the listed token for a specific token ID
+ */
 
     function getListedTokenForId(uint256 tokenId) public view returns (ListedToken memory) {
         return idToListedToken[tokenId];
@@ -339,7 +350,6 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * returns the tokenId
      */
 
-
     function getTokenIdCounter() public view returns (uint256) {
         return (_tokenIdCounter);
     }
@@ -355,7 +365,7 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * updates the balances mapping
      */
 
-   function sellNfts(uint256 _tokenId) public payable onlyRoleCustom(SELLER_ROLE) {
+   function sellNfts(uint256 _tokenId) public payable onlyRole(SELLER_ROLE) {
     require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
     require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
     require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
@@ -374,10 +384,6 @@ function getMyNfts() public view returns (ListedToken[] memory) {
     emit NFTSold(_tokenId, msg.sender, price);
 }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRoleCustom(ADMIN_ROLE) {}
-
-    function _implementation() internal view returns (address) {
-        return address(this);
-    }
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
 
 }
