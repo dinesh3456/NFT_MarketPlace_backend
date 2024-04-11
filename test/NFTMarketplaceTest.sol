@@ -3,81 +3,107 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {NFTMarketplace} from "../src/NFTMarketplace.sol";
-import {NFTMarketplaceProxy} from "../src/ProxyNFTMarketplace.sol";
-import {NFTMarketplaceScript} from "../script/NFTMarketplace.s.sol";
-
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract NFTMarketplaceTest is Test {
-
-     // Define a variable to store the proxy address
-    address public proxyAddress;
-    NFTMarketplaceScript public script;
     NFTMarketplace public marketplace;
-    address payable owner;
-    uint256 _tokenId = 1;
-    uint256 _price = 1 ether;
-
+    NFTMarketplace public proxy;
+    address admin = address(1);
+    address owner = address(2);
+    address alice = address(3);
+    address bob = address(4);
+    
+    bytes32 ADMIN_ROLE;
+    bytes32 CREATOR_ROLE;
+    bytes32 SELLER_ROLE;
+    bytes32 BUYER_ROLE;
 
     function setUp() public {
-        owner = payable(address(this));
         marketplace = new NFTMarketplace();
-        script = new NFTMarketplaceScript();        
-        proxyAddress = script.run();
-        marketplace.assignCreatorRole(owner);
-        marketplace.assignBuyerRole(owner);
-        marketplace.assignSellerRole(owner);
-        marketplace.assignAdminRole(owner);
+        (proxy) = NFTMarketplace(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(marketplace), admin, abi.encodeWithSignature("initialize(address)", owner)
+                )
+            )
+        );
 
-        marketplace.createAndListToken("https://tokenURI", 1 ether);
-        marketplace.buyNFT{value: 1 ether}(_tokenId); // Buy the token
-        marketplace.setPrice(_tokenId, _price); // Set price for the token
+        ADMIN_ROLE = marketplace.ADMIN_ROLE();
+        CREATOR_ROLE = marketplace.CREATOR_ROLE();
+        SELLER_ROLE = marketplace.SELLER_ROLE();
+        BUYER_ROLE = marketplace.BUYER_ROLE();
     }
 
-     // Test case to check if the proxy contract was deployed successfully
-    function testProxyDeployment() public view {
-        address addressZero = address(0);
-        assertNotEq(proxyAddress, addressZero, "Proxy address can't be zero address");
+    function testAccessGrant() public {
+        vm.startPrank(owner);
+        proxy.grantRole(CREATOR_ROLE, alice);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
     }
 
-    // Test case to check if the proxy has the correct implementation
-    function testProxyImplementation() public view {
-        assertEq(address(marketplace), proxyAddress, "Proxy should point to NFTMarketplace implementation");
-    }   
-
-    
-    function testCreateAndListToken() public view {
-        assertEq(marketplace.getTokenURI(_tokenId), "https://tokenURI");
-        assertEq(marketplace.nftPrices(_tokenId), 1 ether);
+    function testFailAccessGrant() public {
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
     }
 
-    function testBuyNFT() public {
-        uint256 tokenId = marketplace.createAndListToken("https://tokenURI", 1 ether);
-        marketplace.buyNFT{value: 1 ether}(tokenId);
-        assertEq(marketplace.ownerOf(tokenId), address(this));
-    }   
+    function testSetPrice() public {
+        vm.startPrank(owner);
+        proxy.grantRole(CREATOR_ROLE, alice); 
+        proxy.grantRole(SELLER_ROLE, bob);       
+        vm.stopPrank();
 
-    // function testWithdraw() public {
-    //     uint256 initialBalance = address(this).balance;
-    //     marketplace.withdraw();
-    //     assertEq(address(this).balance, initialBalance + 1 ether);
-    // }
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
 
-    function testFailWithdrawWithNoBalance() public {
-        NFTMarketplace(address(0x123)).withdraw();
+        vm.startPrank(bob);
+        
+      
+        proxy.setPrice(1, 2 ether);
+        vm.stopPrank();
     }
 
-    function testSetPrice() public view  {
-        assertEq(marketplace.nftPrices(_tokenId), _price);
+    function testFailSetPrice() public {
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        proxy.setPrice(1, 2 ether);
+        vm.stopPrank();
     }
 
-    function testFailSetPriceWithoutSellerRole() public {
-        // Assuming this address does not have the SELLER_ROLE
-        address nonSeller = address(0x123);
-        NFTMarketplace(nonSeller).setPrice(_tokenId, _price);
+    function testBuyToken() public {
+        vm.startPrank(owner);
+        proxy.grantRole(CREATOR_ROLE, alice); 
+        proxy.grantRole(BUYER_ROLE, bob); 
+           
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
+
+       
+
+        vm.startPrank(bob);   
+        vm.deal(bob, 2 ether);    
+        proxy.buyNFT{value: 1 ether}(1);
+        vm.stopPrank();
+    }
+   
+    function testFailBuyToken() public {
+        vm.startPrank(alice);
+        proxy.createAndListToken("https://tokenURI", 1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        proxy.buyNFT{value: 1 ether}(1);
+        vm.stopPrank();
     }
 
-    function testFailSetPriceWithNonexistentToken() public {
-        uint256 nonexistentTokenId = 9999;
-        marketplace.setPrice(nonexistentTokenId, _price);
-    }
 }
