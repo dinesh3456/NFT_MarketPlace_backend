@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /** 
@@ -14,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
  * This is a Solidity contract for a Non-Fungible Token (NFT) marketplace. It uses OpenZeppelin's ERC721 standard for NFTs, along with other OpenZeppelin contracts for access control, URI storage, reentrancy protection, and math operations.
  */
 
-contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgradeable,  ReentrancyGuardUpgradeable {
 
 
     using Math for uint256;
@@ -74,20 +73,15 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
 
     /// @custom:oz-upgrades-unsafe-allow constructor
 
-    constructor(){
-        
+    constructor(){        
         _disableInitializers();        
     }
 
-    function initialize() public initializer {
-        __ERC721_init("MyNFT", "MNFT");
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    function initialize(address _owner) public initializer {
+        __ERC721_init("MyNFT", "MNFT");        
         __AccessControl_init();
-        __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
-        __UUPSUpgradeable_init();
-        
-        
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
     // constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
     //     owner = payable(msg.sender);
@@ -160,7 +154,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         );
 
         return newTokenId;
-        }
+    }
 
     /**
      * @notice Set the price of an NFT
@@ -201,12 +195,12 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         (bool success, uint256 newBalance) = balances[seller].tryAdd(sellerProceeds);
         balances[seller] = newBalance;
 
-    (success, newBalance) = balances[address(this)].tryAdd(contractFee);
+        (success, newBalance) = balances[address(this)].tryAdd(contractFee);
 
-    balances[address(this)] = newBalance;
+        balances[address(this)] = newBalance;
 
-    _transfer(seller, msg.sender, _tokenId);
-    emit NFTSold(_tokenId, msg.sender, price);
+        _transfer(seller, msg.sender, _tokenId);
+        emit NFTSold(_tokenId, msg.sender, price);
     }
     /**
      * @notice Withdraw funds
@@ -310,19 +304,19 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
  * iterate through all the tokens which the owner owns and return only the listed ones 
  */
 
-function getMyNfts() public view returns (ListedToken[] memory) {
-    ListedToken[] memory listedTokens = new ListedToken[](_tokenIdCounter);
-    uint256 counter = 0;
-    for (uint256 i = 1; i <= _tokenIdCounter; i++) {
-        if (ownerOf(i) == msg.sender) {
-            listedTokens[counter] = idToListedToken[i];
-            counter++;
+    function getMyNfts() public view returns (ListedToken[] memory) {
+        ListedToken[] memory listedTokens = new ListedToken[](_tokenIdCounter);
+        uint256 counter = 0;
+        for (uint256 i = 1; i <= _tokenIdCounter; i++) {
+            if (ownerOf(i) == msg.sender) {
+                listedTokens[counter] = idToListedToken[i];
+                counter++;
+            }
         }
-    }
-    // Resize the array to remove any empty slots
-    assembly { mstore(listedTokens, counter) }
-    return listedTokens;
-}
+        // Resize the array to remove any empty slots
+        assembly { mstore(listedTokens, counter) }
+        return listedTokens;
+    }   
 
 /**
  * 
@@ -365,25 +359,22 @@ function getMyNfts() public view returns (ListedToken[] memory) {
      * updates the balances mapping
      */
 
-   function sellNfts(uint256 _tokenId) public payable onlyRole(SELLER_ROLE) {
-    require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
-    require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
-    require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
-    address seller = idToListedToken[_tokenId].owner;
-    uint price = idToListedToken[_tokenId].price;
+    function sellNfts(uint256 _tokenId) public payable onlyRole(SELLER_ROLE) {
+        require(idToListedToken[_tokenId].isListed, "NFTMarketplace: NFT not listed");
+        require(hasRole(SELLER_ROLE, msg.sender), "NFTMarketplace: Caller is not a seller");
+        require(msg.value >= idToListedToken[_tokenId].price, "NFTMarketplace: Insufficient funds");
+        address seller = idToListedToken[_tokenId].owner;
+        uint price = idToListedToken[_tokenId].price;
 
-    // Transfer the NFT to the buyer
-    safeTransferFrom(seller, msg.sender, _tokenId);
+        // Transfer the NFT to the buyer
+        safeTransferFrom(seller, msg.sender, _tokenId);
 
-    balances[seller] += msg.value * 95 / 100;
-    balances[address(this)] += msg.value * 5 / 100;
+        balances[seller] += msg.value * 95 / 100;
+        balances[address(this)] += msg.value * 5 / 100;
 
-    payable(seller).transfer(msg.value * 95 / 100);
-    payable(owner).transfer(msg.value * 5 / 100);
+        payable(seller).transfer(msg.value * 95 / 100);
+        payable(owner).transfer(msg.value * 5 / 100);
 
-    emit NFTSold(_tokenId, msg.sender, price);
-}
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
-
+        emit NFTSold(_tokenId, msg.sender, price);
+    }   
 }
