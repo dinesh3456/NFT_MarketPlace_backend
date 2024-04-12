@@ -81,6 +81,7 @@ contract NFTMarketplace is Initializable, ERC721Upgradeable, AccessControlUpgrad
         __ERC721_init("MyNFT", "MNFT");        
         __AccessControl_init();
         __ReentrancyGuard_init();
+
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
     // constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol){
